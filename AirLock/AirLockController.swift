@@ -19,6 +19,7 @@ final class AirLockController {
     private var tooFarSince: Date?
     private var suppressed: Set<LockReason> = []
     private var lockBeganAt: Date?
+    private var touchesCountAfter: Date?
     private var lastWakeAt: Date?
     private var lastLockAttemptAt: Date?
     private var lastUnlockAttemptAt: Date?
@@ -106,8 +107,11 @@ final class AirLockController {
             // After a sleep the lock is only noticed once the Mac wakes; it really began before that wake.
             if let wake = lastWakeAt, now.timeIntervalSince(wake) < 10 {
                 lockBeganAt = wake.addingTimeInterval(-1)
+                touchesCountAfter = lockBeganAt
             } else {
                 lockBeganAt = now
+                // Ignore the keys or button you used to lock (⌃⌘Q, power button) as they're released.
+                touchesCountAfter = now.addingTimeInterval(1)
             }
             unlockAttempts = 0
             sleptWhileAway = false
@@ -143,12 +147,16 @@ final class AirLockController {
             return
         }
 
-        let wokeSinceLock = lastWakeAt.flatMap { wake in lockBeganAt.map { wake > $0 } } ?? false
-        guard lockedBy != nil || wokeSinceLock else { return }
         if Settings.unlockOnTouch {
-            // A touch after the lock began, recent enough to cover the band reconnecting after a sleep.
-            guard let touch = lastTouchAt, let began = lockBeganAt, touch > began,
+            // Any lock, including one you made yourself: your touch plus the worn band is enough.
+            // The touch must come after the lock began, and be recent enough to cover the band
+            // reconnecting after a sleep.
+            guard let touch = lastTouchAt, let after = touchesCountAfter, touch > after,
                   now.timeIntervalSince(touch) <= 30 else { return }
+        } else {
+            // Without a touch, only reopen locks AirLock made, or ones the Mac woke from.
+            let wokeSinceLock = lastWakeAt.flatMap { wake in lockBeganAt.map { wake > $0 } } ?? false
+            guard lockedBy != nil || wokeSinceLock else { return }
         }
         guard band.isConnected, let signal = band.signal, signal >= Settings.unlockSignal else { return }
         if Settings.requireHeartbeat, band.wristState(now: now, window: Double(Settings.offWristAfter)) != .on { return }
