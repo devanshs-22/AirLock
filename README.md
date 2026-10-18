@@ -1,5 +1,7 @@
 # AirLock
 
+<img src="docs/menu-bar.png" alt="AirLock in the macOS menu bar: an open padlock and a live heart rate of 90" width="110">
+
 A macOS menu bar app that uses a **Google Fitbit Air** as a proximity key, like Apple Watch Auto Unlock, but for a $99 screenless band.
 
 - **Locks the Mac when you walk away**: the band's signal gets weak, or it goes out of range.
